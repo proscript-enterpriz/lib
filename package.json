@@ -1,18 +1,27 @@
 {
   "name": "@interpriz/lib",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "type": "module",
   "scripts": {
-    "build": "tsup"
+    "build": "tsup",
+    "publish:public": "npm publish --access public",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "format": "prettier --write ."
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "tsup": "^8.3.6",
     "typescript": "^5.7.3"
+  },
+  "devDependencies": {
+    "@interpriz/eslint-config": "^0.0.7",
+    "@typescript-eslint/eslint-plugin": "^8.22.0",
+    "@typescript-eslint/parser": "^8.22.0",
+    "eslint": "^9.19.0"
   }
 }
