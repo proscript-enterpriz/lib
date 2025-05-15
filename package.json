@@ -1,12 +1,29 @@
 {
   "name": "@interpriz/lib",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "description": "",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "type": "module",
   "sideEffects": false,
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
+    },
+    "./services": {
+      "import": "./dist/services/index.mjs",
+      "require": "./dist/services/index.cjs",
+      "types": "./dist/services/index.d.ts"
+    },
+    "./utils": {
+      "import": "./dist/utils.mjs",
+      "require": "./dist/utils.cjs",
+      "types": "./dist/utils.d.ts"
+    }
+  },
   "scripts": {
     "build": "tsup",
     "publish:public": "npm publish --access public",
