@@ -336,6 +336,197 @@ export function clearObj(obj: Record<any, any> = {}): Record<any, any> {
   return result;
 }
 
+/**
+ * Triggers a download of a Blob or File with a specified filename.
+ *
+ * This function creates a temporary anchor element to simulate a file download.
+ * It supports both Blob and File types and ensures cleanup after download is triggered.
+ *
+ * @param {Blob | File} data - The Blob or File object to download.
+ * @param {string} name - The desired filename (including extension) for the downloaded file.
+ *
+ * @example
+ * const blob = new Blob(['Hello world'], { type: 'text/plain' });
+ * downloadToPreview(blob, 'hello.txt');
+ *
+ * const file = new File(['PDF content'], 'document.pdf', { type: 'application/pdf' });
+ * downloadToPreview(file, file.name);
+ */
+export const downloadToPreview = (data: Blob | File, name: string): void => {
+  const url = URL.createObjectURL(data);
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  a.style.display = 'none';
+
+  document.body.appendChild(a);
+  a.click();
+
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
+/**
+ * Converts a JavaScript object into a FormData instance.
+ *
+ * Handles nested objects, arrays, File/Blob values, and provides configuration options
+ * for key formatting, type hints, JSON fallback, and debugging.
+ *
+ * @param {Record<string, any>} obj - The plain JavaScript object to convert.
+ * @param {Object} [config] - Optional configuration.
+ * @param {boolean} [config.useDotNotation=false] - Key formatting style:
+ *   - `false`: user[name]
+ *   - `true`: user.name
+ * @param {boolean} [config.addTypeHints=false] - Whether to append type hints (e.g., `:number`, `:boolean`) to keys.
+ * @param {boolean} [config.jsonFallback=false] - If `true`, nested objects are stringified to JSON instead of recursed.
+ * @param {string} [config.parentKey] - Internal use: used during recursion to build full keys.
+ * @param {boolean} [config.debug=false] - If `true`, logs all append operations to the console.
+ * @param {FormData} [formData] - Optional existing FormData object to append to.
+ * @returns {FormData} A FormData instance ready for submission.
+ *
+ * @example
+ * // Example 1: Simple object
+ * const obj = { name: "Alice", age: 30 };
+ * const formData = objToFormData(obj);
+ *
+ * // Result:
+ * // formData.entries() =>
+ * // ["name", "Alice"]
+ * // ["age", "30"]
+ *
+ * @example
+ * // Example 2: Nested object using bracket style
+ * const user = {
+ *   info: {
+ *     fullName: "John Doe",
+ *     active: true,
+ *     age: 25
+ *   }
+ * };
+ * const formData = objToFormData(user);
+ *
+ * // Result:
+ * // ["info[fullName]", "John Doe"]
+ * // ["info[active]", "true"]
+ * // ["info[age]", "25"]
+ *
+ * @example
+ * // Example 3: Dot notation + type hints
+ * const user = {
+ *   info: {
+ *     age: 30,
+ *     active: false
+ *   }
+ * };
+ * const formData = objToFormData(user, {
+ *   useDotNotation: true,
+ *   addTypeHints: true
+ * });
+ *
+ * // Result:
+ * // ["info.age:number", "30"]
+ * // ["info.active:boolean", "false"]
+ *
+ * @example
+ * // Example 4: Using JSON fallback for nested object
+ * const payload = {
+ *   meta: { tags: ["x", "y"], version: 2 }
+ * };
+ * const formData = objToFormData(payload, {
+ *   jsonFallback: true
+ * });
+ *
+ * // Result:
+ * // ["meta", '{"tags":["x","y"],"version":2}']
+ *
+ * @example
+ * // Example 5: JSON fallback + type hints
+ * const payload = {
+ *   meta: { tags: ["x", "y"], version: 2 }
+ * };
+ * const formData = objToFormData(payload, {
+ *   jsonFallback: true,
+ *   addTypeHints: true
+ * });
+ *
+ * // Result:
+ * // ["meta:json", '{"tags":["x","y"],"version":2}']
+ *
+ * @example
+ * // Example 6: Blob or File input
+ * const file = new File(["hello"], "hello.txt", { type: "text/plain" });
+ * const obj = { file };
+ * const formData = objToFormData(obj);
+ *
+ * // Result:
+ * // ["file", File] with name "hello.txt"
+ */
+export function objToFormData(
+  obj: Record<string, any>,
+  config: {
+    useDotNotation?: boolean;
+    addTypeHints?: boolean;
+    jsonFallback?: boolean;
+    parentKey?: string;
+    debug?: boolean;
+  } = {},
+  formData: FormData = new FormData()
+): FormData {
+  const {
+    useDotNotation = false,
+    addTypeHints = false,
+    jsonFallback = false,
+    parentKey,
+    debug = false,
+  } = config;
+
+  for (const [key, value] of Object.entries(obj)) {
+    const fullKey = parentKey
+      ? useDotNotation
+        ? `${parentKey}.${key}`
+        : `${parentKey}[${key}]`
+      : key;
+
+    if (value === undefined || value === null) {
+      continue;
+    }
+
+    if (value instanceof File || value instanceof Blob) {
+      const name = (value as File).name || 'blob';
+      if (debug) console.log(`FormData append [${fullKey}]:`, value, `(file: ${name})`);
+      formData.append(fullKey, value, name);
+    } else if (typeof value === 'object' && !(value instanceof Date)) {
+      if (jsonFallback) {
+        let hint = '';
+        if (addTypeHints) hint = ':json';
+        const jsonString = JSON.stringify(value);
+        if (debug) console.log(`FormData append [${fullKey}${hint}]:`, jsonString);
+        formData.append(fullKey + hint, jsonString);
+      } else {
+        objToFormData(value, { ...config, parentKey: fullKey }, formData);
+      }
+    } else {
+      let stringValue: string;
+      let hint = '';
+
+      if (typeof value === 'boolean' || typeof value === 'number') {
+        stringValue = String(value);
+        if (addTypeHints) {
+          hint = `:${typeof value}`;
+        }
+      } else {
+        stringValue = value;
+      }
+
+      if (debug) console.log(`FormData append [${fullKey}${hint}]:`, stringValue);
+      formData.append(fullKey + hint, stringValue);
+    }
+  }
+
+  return formData;
+}
+
 export type PrettyType<T> = T extends object
   ? { [key in keyof T]: T[key] extends object ? PrettyType<T[key]> : T[key] }
   : T;
