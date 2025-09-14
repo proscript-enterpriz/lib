@@ -136,9 +136,9 @@ export class FetchClient {
   private async parseResponse<T>(response: Response): Promise<T> {
     const contentType = response.headers.get('content-type');
     if (contentType?.includes('application/json')) {
-      return response.json();
+      return await response.json();
     }
-    return response.text() as any;
+    return await response.text() as any;
   }
 
   /**
@@ -158,16 +158,16 @@ export class FetchClient {
    * @param opts Request options.
    * @returns A FetchResult with null body and an error string.
    */
-  private async handleError(
+  private handleError(
     error: any,
     url: string,
     opts: FetchOptions,
-  ): Promise<FetchResult<any>> {
+  ) {
     console.error('Request failed:', { url, options: opts, error });
     const errString = error?.error ?? error?.message ?? String(error);
 
     return {
-      body: null,
+      body: null as any,
       error: errString,
     };
   }
@@ -179,8 +179,8 @@ export class FetchClient {
    * @param options Optional fetch options without body.
    * @returns A promise resolving to the response.
    */
-  public get<TData>(endpoint: string, options?: Omit<FetchOptions, 'body'>) {
-    return this.request<TData>(endpoint, { ...options, method: 'GET' });
+  public async get<TData>(endpoint: string, options?: Omit<FetchOptions, 'body'>) {
+    return await this.request<TData>(endpoint, { ...options, method: 'GET' });
   }
 
   /**
@@ -191,8 +191,8 @@ export class FetchClient {
    * @param options Optional fetch options.
    * @returns A promise resolving to the response.
    */
-  public post<TData>(endpoint: string, body: any, options?: FetchOptions) {
-    return this.request<TData>(endpoint, { ...options, method: 'POST', body });
+  public async post<TData>(endpoint: string, body: any, options?: FetchOptions) {
+    return await this.request<TData>(endpoint, { ...options, method: 'POST', body });
   }
 
   /**
@@ -203,8 +203,8 @@ export class FetchClient {
    * @param options Optional fetch options.
    * @returns A promise resolving to the response.
    */
-  public put<TData>(endpoint: string, body: any, options?: FetchOptions) {
-    return this.request<TData>(endpoint, { ...options, method: 'PUT', body });
+  public async put<TData>(endpoint: string, body: any, options?: FetchOptions) {
+    return await this.request<TData>(endpoint, { ...options, method: 'PUT', body });
   }
 
   /**
@@ -215,8 +215,8 @@ export class FetchClient {
    * @param options Optional fetch options.
    * @returns A promise resolving to the response.
    */
-  public patch<TData>(endpoint: string, body: any, options?: FetchOptions) {
-    return this.request<TData>(endpoint, { ...options, method: 'PATCH', body });
+  public async patch<TData>(endpoint: string, body: any, options?: FetchOptions) {
+    return await this.request<TData>(endpoint, { ...options, method: 'PATCH', body });
   }
 
   /**
@@ -226,7 +226,7 @@ export class FetchClient {
    * @param options Optional fetch options.
    * @returns A promise resolving to the response.
    */
-  public delete<TData>(endpoint: string, options?: FetchOptions) {
-    return this.request<TData>(endpoint, { ...options, method: 'DELETE' });
+  public async delete<TData>(endpoint: string, options?: FetchOptions) {
+    return await this.request<TData>(endpoint, { ...options, method: 'DELETE' });
   }
 }
