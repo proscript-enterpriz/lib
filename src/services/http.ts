@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { clearObj, isObject, objToQs } from '../utils';
 
-export type FetchResult<T> = {
-  body: T;
+export type FetchResult<T, E = {}> = {
+  body: T & Partial<E>;
   error: string | null;
 };
 
@@ -37,7 +37,7 @@ export type FetchClientConfig = {
  *   console.log('Users:', body);
  * }
  */
-export class FetchClient {
+export class FetchClient<E = {}> {
   private config: FetchClientConfig;
 
   /**
@@ -59,7 +59,7 @@ export class FetchClient {
   public async request<T>(
     endpoint: string,
     options: FetchOptions = {},
-  ): Promise<FetchResult<T>> {
+  ): Promise<FetchResult<T, E>> {
     let opts = { ...options };
     try {
       const headers = new Headers(opts.headers || this.config.defaultHeaders);
@@ -77,7 +77,7 @@ export class FetchClient {
         headers,
       );
       const response = await fetch(url, fetchOptions);
-      const body: T = await this.parseResponse(response);
+      const body = await this.parseResponse<T & Partial<E>>(response);
 
       if (!response.ok) throw this.createError(body, response);
 
@@ -148,7 +148,7 @@ export class FetchClient {
    * @returns An Error instance with a message.
    */
   private createError(body: any, _: Response): Error {
-    return new Error(body?.error || body?.message);
+    return new Error((body as any)?.error || (body as any)?.message);
   }
 
   /**
@@ -162,7 +162,7 @@ export class FetchClient {
     error: any,
     url: string,
     opts: FetchOptions,
-  ) {
+  ): FetchResult<any, E> {
     console.error('Request failed:', { url, options: opts, error });
     const errString = error?.error ?? error?.message ?? String(error);
 
