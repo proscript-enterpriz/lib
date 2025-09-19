@@ -63,6 +63,7 @@ export class FetchClient<E = {}> {
     let opts = { ...options };
     try {
       const headers = new Headers(opts.headers || this.config.defaultHeaders);
+      const returnColumns: string[] | undefined = opts.searchParams?.return_columns;
 
       if (!headers.has('Authorization') && this.config.getAuthToken) {
         const token = await this.config.getAuthToken();
@@ -81,10 +82,43 @@ export class FetchClient<E = {}> {
 
       if (!response.ok) throw this.createError(body, response);
 
+      if(!!returnColumns?.length){
+        if(isObject(body)) {
+          return {
+            body: Object.fromEntries(
+              Object.entries(body).map(([key, value]) => ([
+                key,
+                Array.isArray(value) ?
+                  value.map(c => this.filterReturnColumns(c, returnColumns))
+                : this.filterReturnColumns(value, returnColumns)
+              ]))
+            ) as T & Partial<E>,
+            error: null
+          }
+        } else if (Array.isArray(body)) {
+          return {
+            body: body.map(item => this.filterReturnColumns(item, returnColumns)) as T & Partial<E>,
+            error: null
+          }
+        }
+      }
       return { body, error: null };
     } catch (error: any) {
       return this.handleError(error, endpoint, opts);
     }
+  }
+
+  private filterReturnColumns<T>(data: T, returnColumns: string[]): T {
+    if(isObject(data)){
+      const returnColExists = returnColumns.every(col => Object.keys(data as object).includes(col));
+      if(returnColExists){
+        return Object.fromEntries(
+          Object.entries(data as object).filter(([k]) => returnColumns.includes(k))
+        ) as T;
+      }
+      return data;
+    }
+    return data;
   }
 
   /**
@@ -116,13 +150,11 @@ export class FetchClient<E = {}> {
       redirect: 'follow',
       referrerPolicy: 'no-referrer',
       body: (isBodyObject
-        ? JSON.stringify(clearObj(options.body))
+        ? JSON.stringify(options.body)
         : options.body) as RequestInit['body'],
     };
 
-    if (options.searchParams) {
-      url += `?${objToQs(clearObj(options.searchParams))}`;
-    }
+    if (options.searchParams) url += `?${objToQs(clearObj(options.searchParams))}`;
 
     return { url, fetchOptions };
   }
@@ -147,7 +179,7 @@ export class FetchClient<E = {}> {
    * @param _ Ignored response parameter.
    * @returns An Error instance with a message.
    */
-  private createError(body: any, _: Response): Error {
+  protected createError(body: any, _: Response): Error {
     return new Error((body as any)?.error || (body as any)?.message);
   }
 
@@ -158,18 +190,18 @@ export class FetchClient<E = {}> {
    * @param opts Request options.
    * @returns A FetchResult with null body and an error string.
    */
-  private handleError(
+  protected async handleError(
     error: any,
     url: string,
     opts: FetchOptions,
-  ): FetchResult<any, E> {
+  ): Promise<FetchResult<any, E>> {
     console.error('Request failed:', { url, options: opts, error });
     const errString = error?.error ?? error?.message ?? String(error);
 
-    return {
+    return Promise.reject({
       body: null as any,
       error: errString,
-    };
+    });
   }
 
   /**
