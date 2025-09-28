@@ -4,6 +4,8 @@ import { clearObj, isObject, objToQs } from '../utils';
 export type FetchResult<T, E = {}> = {
   body: T & Partial<E>;
   error: string | null;
+  // Optional redirect information when the server responds with a redirect and the request uses redirect: 'manual'
+  redirect?: { url: string; status: number } | null;
 };
 
 export type FetchOptions = Omit<RequestInit, 'body'> & {
@@ -78,9 +80,19 @@ export class FetchClient<E = {}> {
         headers,
       );
       const response = await fetch(url, fetchOptions);
+
+      // Handle HTTP redirects when caller opts into manual redirect handling
+      const isRedirect =
+        response.type === 'opaqueredirect' || (response.status >= 300 && response.status < 400);
+      if (isRedirect) {
+        // Location header may not be exposed cross-origin unless whitelisted by server
+        const location = response.headers.get('location') || response.url || '';
+        return { body: {} as T & Partial<E>, error: null, redirect: { url: location, status: response.status || 0 } };
+      }
+
       const body = await this.parseResponse<T & Partial<E>>(response);
 
-      if (!response.ok) throw this.createError(body, response);
+      if (!response.ok || (body as any)?.status === 'error') throw this.createError(body, response);
 
       if(!!returnColumns?.length){
         if(isObject(body)) {
@@ -147,7 +159,8 @@ export class FetchClient<E = {}> {
       headers,
       credentials: 'include',
       mode: 'cors',
-      redirect: 'follow',
+      // Allow caller to control redirect behavior; default stays 'follow' for backward compatibility
+      redirect: options.redirect ?? 'follow',
       referrerPolicy: 'no-referrer',
       body: (isBodyObject
         ? JSON.stringify(options.body)
